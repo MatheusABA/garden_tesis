@@ -1,13 +1,22 @@
 import os
-from pymongo.mongo_client import MongoClient
-from pymongo.server_api import ServerApi
+from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 
 load_dotenv()   # Initializing .env values
 
 MONGODB_URL = os.getenv("MONGODB_URL")
 
-client = MongoClient(MONGODB_URL, server_api=ServerApi("1"))
+# Creating a client with MongoDB
+client = AsyncIOMotorClient(MONGODB_URL)
+
+def get_garden_db():
+    """Return connection with garden database"""
+    return client[os.getenv("DATABASE")]
+
+def get_garden_complete_db():
+    """Return connection with garden_complete database"""
+    return client[os.getenv("DATABASE_COMPLETE")]
+
 
 def connection():
     try:
@@ -16,9 +25,8 @@ def connection():
     except Exception as e:
         print(e)
         
-        
-db = client[os.getenv("DATABASe")];
 
 if __name__ == "__main__":
-    connection()
+    import asyncio
+    asyncio.run(connection())
     
