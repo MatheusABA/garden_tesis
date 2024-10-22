@@ -1,7 +1,11 @@
 # Final Project - Server
 
 #### Version 1.0.0
-#### Authors: <a style="color: black" src="https://github.com/MatheusABA">Matheus Alexandre</a>, <a style="color: black" src="https://github.com/olszewskioc">Thiago Olszewski</a>
+<h4>
+    Authors:
+    <a style="color: black" src="https://github.com/MatheusABA">Matheus Alexandre</a>, 
+    <a style="color: black" src="https://github.com/olszewskioc">Thiago Olszewski</a>
+</h4>
 </br>
 
 ## Utilized Tecnologies
