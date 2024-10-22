@@ -2,3 +2,4 @@
 .env
 /tesis
 __pycache__/
+venv/
