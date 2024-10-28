@@ -10,5 +10,6 @@ class SensorData(BaseModel):
     
     
 class PackageData(BaseModel):
-    pending: bool
+    pending: bool   # Utilizado para realizar os cálculos de correalação diários
+    tag: str        # Utilizado para identificar se é uma correlação horária ou diária
     data: List[SensorData]

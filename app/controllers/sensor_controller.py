@@ -8,6 +8,11 @@ router = APIRouter()
 @router.post("/data")
 async def store_data(package_data: PackageData):
     result =  await store_sensor_data(package_data)
+    return result
+
+@router.post("/correlation")
+async def store_data(package_data: PackageData):
+    result =  await store_sensor_data(package_data)
     if result["inserted_id"] is None:
         raise HTTPException(status_code=400, detail=result["status"]) 
     

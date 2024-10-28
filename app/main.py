@@ -25,7 +25,7 @@ async def startup_event():
 async def monitor_garden_db():    
     try:
         while True:
-            await asyncio.sleep(30)  # 10800 seconds = 3 hours ## Wait 3 hours to check database
+            await asyncio.sleep(600)  # 600s = 10min
             
             garden_db = get_garden_db()    
             sensor_data = await garden_db.sensor_data.find().to_list(length=None)
