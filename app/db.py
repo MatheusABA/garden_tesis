@@ -13,10 +13,6 @@ def get_garden_db():
     """Return connection with garden database"""
     return client[os.getenv("DATABASE")]
 
-def get_garden_complete_db():
-    """Return connection with garden_complete database"""
-    return client[os.getenv("DATABASE_COMPLETE")]
-
 
 def connection():
     try:

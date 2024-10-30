@@ -1,8 +1,9 @@
 from fastapi import FastAPI, Depends, BackgroundTasks
 from .controllers.sensor_controller import router as sensor_router  # Telling which name this route will had
-from .db import connection, get_garden_db, get_garden_complete_db
+from .db import connection, get_garden_db
 import asyncio
 import pandas as pd
+from datetime import datetime, timedelta
 
 #  FastAPI Description
 app = FastAPI()
@@ -25,14 +26,15 @@ async def startup_event():
 async def monitor_garden_db():    
     try:
         while True:
-            await asyncio.sleep(600)  # 600s = 10min
+            await asyncio.sleep(3600)  # 600s = 10min
             
-            garden_db = get_garden_db()    
-            sensor_data = await garden_db.sensor_data.find().to_list(length=None)
+            garden_db = get_garden_db()
+            one_hour_ago = datetime.now() - timedelta(hours=1)
+            sensor_data = await garden_db.sensor_data.find({"timestamp": {"$gte": one_hour_ago}}).to_list(length=None)
             
-            if len(sensor_data) >= 4:
-                result = await generate_correlation_matrix(sensor_data)
-                print(result["status"])
+            # if sensor_data:
+                
+                
     except Exception as e:
         print(e)
     
@@ -95,13 +97,13 @@ async def generate_correlation_matrix(sensor_data):
         print("Matriz de correlação:\n", correlation_matrix)
 
         # Armazenando a matriz de correlação no banco garden_complete
-        garden_complete_db = await get_garden_complete_db()
+        garden_db = await get_garden_db()
         correlation_result = {
             "correlation_matrix": correlation_matrix.to_dict(),
             "timestamp": pd.Timestamp.now().isoformat()
         }
 
-        await garden_complete_db.correlation_data.insert_one(correlation_result)
+        await garden_db.correlation_data.insert_one(correlation_result)
 
         return {"status": "Matriz de correlação gerada e salva com sucesso."}
 

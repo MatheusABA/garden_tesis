@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from ..models import PackageData
 from ..services.sensor_service import store_sensor_data
 
@@ -11,7 +11,7 @@ async def store_data(package_data: PackageData):
     return result
 
 @router.post("/correlation")
-async def store_data(package_data: PackageData):
+async def correlate_data(package_data: PackageData):
     result =  await store_sensor_data(package_data)
     if result["inserted_id"] is None:
         raise HTTPException(status_code=400, detail=result["status"]) 
