@@ -15,12 +15,12 @@ class PackageData(BaseModel):
 # Modelo para a Matriz Horária
 class HourlyMatrix(BaseModel):
     timestamp: str  # Timestamp representativo da matriz
-    mean_values: List[float]  # Valores médios das medições dos sensores
+    correlation_matrix: Optional[List[float]] = None # Valores médios das medições dos sensores - Pode ter valor nulo
     processed: Optional[bool] = False  # Indica se já foi processada para a matriz diária
 
 # Modelo para a Matriz Diária
 class DailyMatrix(BaseModel):
     timestamp: str  # Timestamp da criação da matriz diária
-    mean_values: List[float]  # Valores médios diários dos sensores
+    correlation_matrix: Optional[List[float]] = None  # Valores médios diários dos sensores
     image_filename: str  # Nome do arquivo da imagem associada
     

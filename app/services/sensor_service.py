@@ -1,4 +1,3 @@
-from pymongo import ReturnDocument
 from ..db import get_garden_db
 import logging
 from .image_service import capture_image
@@ -10,7 +9,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Buffer para armazenar temporariamente os dados dos sensores
 sensor_data_buffer = []
-BUFFER_LIMIT = 4  # Defina o limite de dados a serem acumulados
+BUFFER_LIMIT = 60  # Defina o limite de dados a serem acumulados (60 = 1hora)
 
 async def store_sensor_data(package_data):
         
@@ -27,86 +26,121 @@ async def store_sensor_data(package_data):
         try:
             # Construindo matriz horaria
             timestamp = package_data.data.timestamp[0]
-            hourly_matrix, original_json = process_to_hourly_matrix({
+            hourly_correlation, original_json = process_to_hourly_correlation({
                 "data": sensor_data_buffer,
                 "timestamp": timestamp,
             })
             
-            await save_hourly_matrix(hourly_matrix)
+            await save_hourly_correlation(hourly_correlation)
             await save_hourly_json(original_json)
             
             sensor_data_buffer.clear()
+            
         except Exception as e:
+            logging.error("Erro ao processar matriz horária", e)
             sensor_data_buffer.clear()
             return e
         
-        # data_correlation(combined_data)
+        
 
     return  {
-        "status": "Dados estão sendo bufferizados e serão salvos quando o buffer estiver cheio!",
+        "status": "Dados armazenados no buffer e serão salvos quando o buffer estiver cheio!",
         "insert_id": None
     }
 
-async def save_hourly_matrix(hourly_matrix):
+async def save_hourly_correlation(hourly_correlation):
     "Salva matriz horaria na colleciton hourly_matrices"
-    garden_db = get_garden_db()
-    await garden_db.hourly_matrices.insert_one(hourly_matrix)
+    garden_db = await get_garden_db()
+    try:
+        await garden_db.hourly_correlation.insert_one(hourly_correlation)
+    except Exception as e:
+        logging.error("Erro ao salvar matriz diaria")
+
+
+
 
 async def save_hourly_json(original_json):
     "Salva json original para o usuario realizar quais metricas ele quiser"
-    garden_db = get_garden_db()
-    await garden_db.hourly_json.insert_one(original_json)
+    garden_db = await get_garden_db()
+    try:
+        
+        await garden_db.hourly_json.insert_one(original_json)
+    except Exception as e:
+        logging.error("Erro ao salvar json original", e)
     
-def process_to_hourly_matrix(data):
+    
+    
+    
+def process_to_hourly_correlation(data):
     """Processa o buffer e gera a matriz horária e JSON dos dados."""
-    sensor_values = np.array([list(d.values()) for d in data["data"]])
-    mean_values = np.mean(sensor_values, axis=0)
+    try :
+        sensor_values = np.array([list(d.values()) for d in data["data"]])
+        correlation_matrix = np.corrcoef(sensor_values, rowvar=False)
+        
+        # Cria a matriz horária como uma média dos dados
+        hourly_correlation = {
+            "timestamp": data["timestamp"],
+            "correlation_matrix": correlation_matrix.tolist(),
+            "processed": False
+        }
+        
+        # Retorna a matriz horária e o JSON original
+        original_json = {"data": data["data"], "timestamp": data["timestamp"]}
+        
+        return hourly_correlation, original_json
+    except Exception as e:
+        logging.error("Não foi possível processar a correlação diári")
     
-    # Cria a matriz horária como uma média dos dados
-    hourly_matrix = {
-        "timestamp": data["timestamp"],
-        "mean_values": mean_values.tolist()
-    }
-    
-    # Retorna a matriz horária e o JSON original
-    original_json = {"data": data["data"], "timestamp": data["timestamp"]}
-    
-    return hourly_matrix, original_json
 
-async def process_daily_matrix():
+async def process_daily_correlation():
     """Processa as matrizes horárias para criar uma matriz diária e salva na coleção 'daily_matrices'."""
-    garden_db = get_garden_db()
-    
-    # Coleta todas as matrizes horárias do dia
-    current_date = datetime.now().date()
-    hourly_matrices = await garden_db.hourly_matrices.find({
-        "timestamp": {"$gte": datetime.combine(current_date, datetime.min.time())}
-    }).to_list(length=None)
+    try:
+        garden_db = await get_garden_db()
+        # Coleta todas as matrizes horárias do dia
+        current_date = datetime.now().date()
+        hourly_correlations = await garden_db.hourly_correlations.find({"processed": False}).to_list(length=None)
 
-    if not hourly_matrices:
-        return {"status": "No hourly matrices available for the daily matrix"}
+        if not hourly_correlations:
+            return {"status": "Não há matrizes disponíveis para realizar a matriz diária"}
 
-    # Calcula a média diária
-    mean_daily_values = np.mean([entry["mean_values"] for entry in hourly_matrices], axis=0).tolist()
-    timestamp = datetime.now()
-    
-    # Captura e salva a imagem do plantio
-    image_filename = await capture_and_save_image()
-    
-    # Estrutura a matriz diária com a média calculada e a imagem
-    daily_matrix = {
-        "timestamp": timestamp,
-        "mean_values": mean_daily_values,
-        "image_filename": image_filename
-    }
+        # Calcula a média diária
+        mean_daily_correlation = np.mean([entry["mean_values"] for entry in hourly_correlations], axis=0).tolist()
+        timestamp = datetime.now()
+        
+        # Captura e salva a imagem do plantio
+        image_filename = await capture_image()
+        
+        # Estrutura a matriz diária com a média calculada e a imagem
+        daily_correlation = {
+            "timestamp": timestamp,
+            "correlation_matrix": mean_daily_correlation,
+            "image_filename": image_filename
+        }
 
-    # Salva a matriz diária na coleção 'daily_matrices'
-    await garden_db.daily_matrices.insert_one(daily_matrix)
+        # Salva a matriz diária na coleção 'daily_matrices'
+        await garden_db.daily_correlation.insert_one(daily_correlation)
+        
+        # Atualiza as matrizes para processadas agora
+        for entry in hourly_correlations:
+            await garden_db.hourly_correlation.update_one(
+                {"_id": entry["_id"]},
+                {"$set": {"processed": True}}
+            )
+            
+        return {"status": "Daily matrix successfully saved"}
+    except Exception as e:
+        logging.error("Não foi possível processar a matriz diária")
 
-    return {"status": "Daily matrix successfully saved"}
 
-async def capture_and_save_image():
-    """Função para capturar uma imagem e salvar no banco."""
-    from ..services.image_service import capture_image
-    image_filename = await capture_image()
-    return image_filename
+# SOMENTE LEITURA DE DADOS
+async def get_hourly_matrices():
+    garden_db = await get_garden_db()
+    return await garden_db.hourly_correlation.find().to_list(length=None)
+
+async def get_daily_matrices():
+    garden_db = await get_garden_db()
+    return await garden_db.daily_correlation.find().to_list(length=None)
+
+async def get_images():
+    garden_db = await get_garden_db()
+    return await garden_db.images.find().to_list(length=None)
