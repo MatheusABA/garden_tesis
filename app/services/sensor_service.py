@@ -52,19 +52,18 @@ async def store_sensor_data(package_data):
             timestamp = package_data.data[0].timestamp
             
             
+            # Processamento da matriz horária
             hourly_correlation = process_to_hourly_correlation({
                 "data": sensor_data_buffer,
                 "timestamp": timestamp,
             })
             
+            # Encapsulando json original para salvar no banco 
             original_json = {
                 "data": sensor_data_buffer,
                 "timestamp": timestamp
             }
-            
-            if hourly_correlation is None:
-                logging.error("Erro no processamento dos dados de correlação horária.")
-                
+                            
     
             await save_hourly_json(original_json)
             await save_hourly_correlation(hourly_correlation)
@@ -86,9 +85,11 @@ async def save_hourly_correlation(hourly_correlation):
     "Salva matriz horaria na colleciton hourly_matrices"
     garden_db = await get_garden_db()
     try:
+        logging.info("Tentando salvar correlação horária: %s", hourly_correlation)
         await garden_db.hourly_correlation.insert_one(hourly_correlation)
+        logging.info("Matriz horária salva com sucesso!")
     except Exception as e:
-        logging.error("Erro ao salvar matriz diaria")
+        logging.error("Erro ao salvar matriz horária")
 
 
 
@@ -113,18 +114,18 @@ async def save_hourly_json(original_json):
 def process_to_hourly_correlation(data):
     """Processa o buffer e gera a matriz horária e JSON dos dados."""
     try :
+        
+        # ATUALMENTE FUNCIONA, POREM PRECISA ARRUMAR PARA A CORRELACAO DE PEARSON
         logging.info("Dados recebidos para correlação horária: %s", data)
         
-        sensor_values = np.array([list(d.values()) for d in data["data"]])
-        # sensor_values = []
-        # for d in data["data"]:
-        #     sensor_values.append(float(d['measure_value']))
+        sensor_values = np.array([[d['measure_value']] for d in data["data"]])
         
-        # sensor_values = np.array(sensor_values)
+        # sensor_values = [d["measure_value"] for d in data["data"]]
         
-        correlation_matrix = np.corrcoef(sensor_values, rowvar=False)
+        correlation_matrix = np.corrcoef(sensor_values, rowvar=True)
         # correlation_matrix = np.corrcoef(sensor_values.reshape(-1, len(data["data"])), rowvar=False)
         
+        logging.info(correlation_matrix)
         # Cria a matriz horária como uma média dos dados
         hourly_correlation = {
             "timestamp": data["timestamp"],
@@ -134,6 +135,39 @@ def process_to_hourly_correlation(data):
         
         logging.info(hourly_correlation)
         return hourly_correlation
+        
+        # TESTES PARA SALVAR CADA VALOR DOS SENSORES EM DICIONARIO PARA PASSAR AO CORRCOE DO NUMMPY
+        # Dicionário para organizar valores de cada tipo de medida
+        # measures = {
+        #     'UMIDADE RELATIVA AR': [],
+        #     'TEMPERATURA': [],
+        #     'CO2': [],
+        #     'LUMINOSIDADE': []
+        # }
+        
+        # # Preenchendo as listas de medidas com base nos dados recebidos
+        # for entry in data['data']:
+        #     measure_type = entry['measure_type']
+        #     measure_value = entry['measure_value']
+        #     if measure_type in measures:
+        #         measures[measure_type].append(measure_value)
+        
+        # # Cria uma matriz onde cada linha representa uma série de dados de medida
+        # series_data = [
+        #     measures['UMIDADE RELATIVA AR'],
+        #     measures['TEMPERATURA'],
+        #     measures['CO2'],
+        #     measures['LUMINOSIDADE']
+        # ]
+        
+        # # Verifica se todos os tipos de medida têm dados suficientes para calcular a correlação
+        # if all(len(values) > 1 for values in series_data):
+        #     # Calcula a matriz de correlação
+        #     correlation_matrix = np.corrcoef(series_data)
+        #     return correlation_matrix
+        # else:
+        #     print("Erro: Dados insuficientes para uma ou mais variáveis.")
+        #     return None
     
     except Exception as e:
         logging.error("Não foi possível processar a correlação diária")

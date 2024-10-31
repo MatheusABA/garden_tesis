@@ -1,8 +1,26 @@
 [
     {
+        "sensor_type": "DHT11",
+        "measure_type": "UMIDADE RELATIVA AR",
+        "measure_value": 79.0,
+        "timestamp": "2024-10-31T09:00:36.396375"
+    },
+    {
+        "sensor_type": "DHT11",
+        "measure_type": "TEMPERATURA",
+        "measure_value": 28.0,
+        "timestamp": "2024-10-31T09:00:36.399426"
+    },
+    {
+        "sensor_type": "MQ7",
+        "measure_type": "CO2",
+        "measure_value": 401.0,
+        "timestamp": "2024-10-31T09:00:36.402423"
+    },
+    {
         "sensor_type": "LDR",
-        "measure_type": "luminosidade",
-        "measure_value": 300.0,
-        "timestamp": "2024-10-31T08:18:47.249433"
+        "measure_type": "LUMINOSIDADE",
+        "measure_value": 407.0,
+        "timestamp": "2024-10-31T09:00:36.405801"
     }
 ]
