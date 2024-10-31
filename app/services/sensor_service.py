@@ -40,6 +40,10 @@ async def store_sensor_data(package_data):
     for sensor_data in package_data.data:
         sensor_data_buffer.append(sensor_data.dict())
         
+    # sensor_data_buffer.append(package_data.data)
+        
+    
+        
     save_buffer_locally(sensor_data_buffer)
 
     if  len(sensor_data_buffer) >= BUFFER_LIMIT:
@@ -47,12 +51,18 @@ async def store_sensor_data(package_data):
             # Construindo matriz horaria
             timestamp = package_data.data[0].timestamp
             
-            hourly_correlation, original_json = process_to_hourly_correlation({
+            
+            hourly_correlation = process_to_hourly_correlation({
                 "data": sensor_data_buffer,
                 "timestamp": timestamp,
             })
             
-            if hourly_correlation is None or original_json is None:
+            original_json = {
+                "data": sensor_data_buffer,
+                "timestamp": timestamp
+            }
+            
+            if hourly_correlation is None:
                 logging.error("Erro no processamento dos dados de correlação horária.")
                 
     
@@ -63,8 +73,7 @@ async def store_sensor_data(package_data):
             
         except Exception as e:
             logging.error("Erro ao processar matriz horária", exc_info=e)
-            sensor_data_buffer.clear()
-            return e
+            return {"status": "Erro ao processar matriz horária", "error": str(e)}
         
         
 
@@ -88,16 +97,15 @@ async def save_hourly_json(original_json):
     "Salva json original para o usuario realizar quais metricas ele quiser"
     garden_db = await get_garden_db()
     try:
+        logging.info("Tentando salvar JSON original: %s", original_json)
+        await garden_db.hourly_json.insert_one(original_json)
+        logging.info("JSON original salvo com sucesso.")
             
-        if isinstance(original_json, dict):
-            await garden_db.hourly_json.insert_one(original_json)
-            
-        else:
-            logging.error("O arquivo não é um dicionário")
-            logging.info("Estrutura do original_json: %s", type(original_json))
             
     except Exception as e:
         logging.error("Erro ao salvar json original: %s", e)
+        logging.info("Estrutura do original_json: %s", type(original_json))
+        
     
     
     
@@ -106,25 +114,31 @@ def process_to_hourly_correlation(data):
     """Processa o buffer e gera a matriz horária e JSON dos dados."""
     try :
         logging.info("Dados recebidos para correlação horária: %s", data)
+        
         sensor_values = np.array([list(d.values()) for d in data["data"]])
+        # sensor_values = []
+        # for d in data["data"]:
+        #     sensor_values.append(float(d['measure_value']))
+        
+        # sensor_values = np.array(sensor_values)
+        
         correlation_matrix = np.corrcoef(sensor_values, rowvar=False)
+        # correlation_matrix = np.corrcoef(sensor_values.reshape(-1, len(data["data"])), rowvar=False)
+        
         # Cria a matriz horária como uma média dos dados
         hourly_correlation = {
             "timestamp": data["timestamp"],
             "correlation_matrix": correlation_matrix.tolist(),
             "processed": False
-        }
+        }        
         
-        # Retorna a matriz horária e o JSON original
-        original_json = {"data": data["data"], "timestamp": data["timestamp"]}
-        
-        logging.info("JSON original processado: %s", original_json)  # Log da estrutura
-        
-        return hourly_correlation, original_json
+        logging.info(hourly_correlation)
+        return hourly_correlation
     
     except Exception as e:
         logging.error("Não foi possível processar a correlação diária")
         return None, None
+        
     
     
 
