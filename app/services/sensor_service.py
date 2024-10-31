@@ -1,4 +1,6 @@
 from ..db import get_garden_db
+import json
+import os
 import logging
 from .image_service import capture_image
 import numpy as np
@@ -9,7 +11,22 @@ logging.basicConfig(level=logging.INFO)
 
 # Buffer para armazenar temporariamente os dados dos sensores
 sensor_data_buffer = []
-BUFFER_LIMIT = 60  # Defina o limite de dados a serem acumulados (60 = 1hora)
+BUFFER_LIMIT = 4  # Defina o limite de dados a serem acumulados (60 = 1hora)
+
+BUFFER_FILE_PATH = "sensor_data.json"
+
+
+def save_buffer_locally(buffer):
+    """Salva o conteúdo do buffer em um arquivo JSON localmente."""
+    try:
+        with open(BUFFER_FILE_PATH, 'w') as f:
+            json.dump(buffer, f, indent=4, default=str)
+        logging.info("Buffer salvo localmente em %s", BUFFER_FILE_PATH)
+    except Exception as e:
+        logging.error("Erro ao salvar buffer localmente", exc_info=True)
+
+
+
 
 async def store_sensor_data(package_data):
         
@@ -20,24 +37,32 @@ async def store_sensor_data(package_data):
         return {"status": "No data provided", "inserted_id": []}
     
     # Adiciona os dados no buffer
-    sensor_data_buffer.append(package_data.data)
+    for sensor_data in package_data.data:
+        sensor_data_buffer.append(sensor_data.dict())
+        
+    save_buffer_locally(sensor_data_buffer)
 
     if  len(sensor_data_buffer) >= BUFFER_LIMIT:
         try:
             # Construindo matriz horaria
-            timestamp = package_data.data.timestamp[0]
+            timestamp = package_data.data[0].timestamp
+            
             hourly_correlation, original_json = process_to_hourly_correlation({
                 "data": sensor_data_buffer,
                 "timestamp": timestamp,
             })
             
-            await save_hourly_correlation(hourly_correlation)
+            if hourly_correlation is None or original_json is None:
+                logging.error("Erro no processamento dos dados de correlação horária.")
+                
+    
             await save_hourly_json(original_json)
+            await save_hourly_correlation(hourly_correlation)
             
             sensor_data_buffer.clear()
             
         except Exception as e:
-            logging.error("Erro ao processar matriz horária", e)
+            logging.error("Erro ao processar matriz horária", exc_info=e)
             sensor_data_buffer.clear()
             return e
         
@@ -63,10 +88,16 @@ async def save_hourly_json(original_json):
     "Salva json original para o usuario realizar quais metricas ele quiser"
     garden_db = await get_garden_db()
     try:
-        
-        await garden_db.hourly_json.insert_one(original_json)
+            
+        if isinstance(original_json, dict):
+            await garden_db.hourly_json.insert_one(original_json)
+            
+        else:
+            logging.error("O arquivo não é um dicionário")
+            logging.info("Estrutura do original_json: %s", type(original_json))
+            
     except Exception as e:
-        logging.error("Erro ao salvar json original", e)
+        logging.error("Erro ao salvar json original: %s", e)
     
     
     
@@ -74,9 +105,9 @@ async def save_hourly_json(original_json):
 def process_to_hourly_correlation(data):
     """Processa o buffer e gera a matriz horária e JSON dos dados."""
     try :
+        logging.info("Dados recebidos para correlação horária: %s", data)
         sensor_values = np.array([list(d.values()) for d in data["data"]])
         correlation_matrix = np.corrcoef(sensor_values, rowvar=False)
-        
         # Cria a matriz horária como uma média dos dados
         hourly_correlation = {
             "timestamp": data["timestamp"],
@@ -87,9 +118,14 @@ def process_to_hourly_correlation(data):
         # Retorna a matriz horária e o JSON original
         original_json = {"data": data["data"], "timestamp": data["timestamp"]}
         
+        logging.info("JSON original processado: %s", original_json)  # Log da estrutura
+        
         return hourly_correlation, original_json
+    
     except Exception as e:
-        logging.error("Não foi possível processar a correlação diári")
+        logging.error("Não foi possível processar a correlação diária")
+        return None, None
+    
     
 
 async def process_daily_correlation():

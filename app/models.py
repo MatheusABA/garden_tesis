@@ -5,7 +5,7 @@ from typing import List, Optional
 class SensorData(BaseModel):
     sensor_type: str
     measure_type: str
-    measure_value: str
+    measure_value: float
     timestamp: str
     
     

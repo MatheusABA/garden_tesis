@@ -9,6 +9,7 @@ import uvicorn
 
 #  FastAPI Description
 app = FastAPI()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=['*'],

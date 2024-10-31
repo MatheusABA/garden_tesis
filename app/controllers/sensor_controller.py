@@ -7,6 +7,7 @@ router = APIRouter()
 
 @router.post("/data")
 async def store_data(package_data: PackageData):
+    print(package_data)
     result =  await store_sensor_data(package_data)
     return result
 
