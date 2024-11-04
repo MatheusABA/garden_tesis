@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Buffer para armazenar temporariamente os dados dos sensores
 sensor_data_buffer = []
-BUFFER_LIMIT = 4  # Defina o limite de dados a serem acumulados (60 = 1hora)
+BUFFER_LIMIT = 24  # Defina o limite de dados a serem acumulados (60 = 1hora)
 
 BUFFER_FILE_PATH = "sensor_data.json"
 
@@ -85,8 +85,15 @@ async def save_hourly_correlation(hourly_correlation):
     "Salva matriz horaria na colleciton hourly_matrices"
     garden_db = await get_garden_db()
     try:
+        if isinstance(hourly_correlation, np.ndarray):
+            hourly_correlation = hourly_correlation.tolist()  # Converte para lista
+            correlation_data = {
+            "timestamp": datetime.utcnow(),  # Adiciona timestamp atual
+            "correlation_matrix": hourly_correlation,
+            "processed": False
+        }
         logging.info("Tentando salvar correlação horária: %s", hourly_correlation)
-        await garden_db.hourly_correlation.insert_one(hourly_correlation)
+        await garden_db.hourly_correlation.insert_one(correlation_data)
         logging.info("Matriz horária salva com sucesso!")
     except Exception as e:
         logging.error("Erro ao salvar matriz horária")
@@ -115,59 +122,57 @@ def process_to_hourly_correlation(data):
     """Processa o buffer e gera a matriz horária e JSON dos dados."""
     try :
         
-        # ATUALMENTE FUNCIONA, POREM PRECISA ARRUMAR PARA A CORRELACAO DE PEARSON
-        logging.info("Dados recebidos para correlação horária: %s", data)
+        # # ATUALMENTE FUNCIONA, POREM PRECISA ARRUMAR PARA A CORRELACAO DE PEARSON
+        # logging.info("Dados recebidos para correlação horária: %s", data)
         
-        sensor_values = np.array([[d['measure_value']] for d in data["data"]])
+        # sensor_values = np.array([[d['measure_value']] for d in data["data"]])
         
-        # sensor_values = [d["measure_value"] for d in data["data"]]
         
-        correlation_matrix = np.corrcoef(sensor_values, rowvar=True)
-        # correlation_matrix = np.corrcoef(sensor_values.reshape(-1, len(data["data"])), rowvar=False)
+        # correlation_matrix = np.corrcoef(sensor_values, rowvar=True)
         
-        logging.info(correlation_matrix)
-        # Cria a matriz horária como uma média dos dados
-        hourly_correlation = {
-            "timestamp": data["timestamp"],
-            "correlation_matrix": correlation_matrix.tolist(),
-            "processed": False
-        }        
+        # logging.info(correlation_matrix)
+        # # Cria a matriz horária como uma média dos dados
+        # hourly_correlation = {
+        #     "timestamp": data["timestamp"],
+        #     "correlation_matrix": correlation_matrix.tolist(),
+        #     "processed": False
+        # }        
         
-        logging.info(hourly_correlation)
-        return hourly_correlation
+        # logging.info(hourly_correlation)
+        # return hourly_correlation
         
         # TESTES PARA SALVAR CADA VALOR DOS SENSORES EM DICIONARIO PARA PASSAR AO CORRCOE DO NUMMPY
         # Dicionário para organizar valores de cada tipo de medida
-        # measures = {
-        #     'UMIDADE RELATIVA AR': [],
-        #     'TEMPERATURA': [],
-        #     'CO2': [],
-        #     'LUMINOSIDADE': []
-        # }
+        measures = {
+            'UMIDADE RELATIVA AR': [],
+            'TEMPERATURA': [],
+            'CO2': [],
+            'LUMINOSIDADE': []
+        }
         
-        # # Preenchendo as listas de medidas com base nos dados recebidos
-        # for entry in data['data']:
-        #     measure_type = entry['measure_type']
-        #     measure_value = entry['measure_value']
-        #     if measure_type in measures:
-        #         measures[measure_type].append(measure_value)
+        # Preenchendo as listas de medidas com base nos dados recebidos
+        for entry in data['data']:
+            measure_type = entry['measure_type']
+            measure_value = entry['measure_value']
+            if measure_type in measures:
+                measures[measure_type].append(measure_value)
         
-        # # Cria uma matriz onde cada linha representa uma série de dados de medida
-        # series_data = [
-        #     measures['UMIDADE RELATIVA AR'],
-        #     measures['TEMPERATURA'],
-        #     measures['CO2'],
-        #     measures['LUMINOSIDADE']
-        # ]
+        # Cria uma matriz onde cada linha representa uma série de dados de medida
+        series_data = [
+            measures['UMIDADE RELATIVA AR'],
+            measures['TEMPERATURA'],
+            measures['CO2'],
+            measures['LUMINOSIDADE']
+        ]
         
-        # # Verifica se todos os tipos de medida têm dados suficientes para calcular a correlação
-        # if all(len(values) > 1 for values in series_data):
-        #     # Calcula a matriz de correlação
-        #     correlation_matrix = np.corrcoef(series_data)
-        #     return correlation_matrix
-        # else:
-        #     print("Erro: Dados insuficientes para uma ou mais variáveis.")
-        #     return None
+        # Verifica se todos os tipos de medida têm dados suficientes para calcular a correlação
+        if all(len(values) > 1 for values in series_data):
+            # Calcula a matriz de correlação
+            hourly_correlation = np.corrcoef(series_data)
+            return hourly_correlation
+        else:
+            print("Erro: Dados insuficientes para uma ou mais variáveis.")
+            return None
     
     except Exception as e:
         logging.error("Não foi possível processar a correlação diária")
@@ -179,13 +184,21 @@ def process_to_hourly_correlation(data):
 async def process_daily_correlation():
     """Processa as matrizes horárias para criar uma matriz diária e salva na coleção 'daily_matrices'."""
     try:
+        logging.info("TENTANDO SALVAR MATRIZ DIARIA")
         garden_db = await get_garden_db()
+        
         # Coleta todas as matrizes horárias do dia
         current_date = datetime.now().date()
         hourly_correlations = await garden_db.hourly_correlations.find({"processed": False}).to_list(length=None)
 
         if not hourly_correlations:
+            logging.info("Não há matrizes disponíveis para realizar a matriz diária")
             return {"status": "Não há matrizes disponíveis para realizar a matriz diária"}
+
+        # Verifica se as matrizes horárias têm valores válidos
+        if not all(entry.get("mean_values") is not None for entry in hourly_correlations):
+            logging.error("Algumas matrizes horárias não possuem valores válidos.")
+            return {"status": "Erro ao processar matrizes horárias"}
 
         # Calcula a média diária
         mean_daily_correlation = np.mean([entry["mean_values"] for entry in hourly_correlations], axis=0).tolist()
@@ -203,6 +216,7 @@ async def process_daily_correlation():
 
         # Salva a matriz diária na coleção 'daily_matrices'
         await garden_db.daily_correlation.insert_one(daily_correlation)
+        logging.info("MATRIZ DIARIA SALVA COM SUCESSO")
         
         # Atualiza as matrizes para processadas agora
         for entry in hourly_correlations:
@@ -211,20 +225,49 @@ async def process_daily_correlation():
                 {"$set": {"processed": True}}
             )
             
-        return {"status": "Daily matrix successfully saved"}
+        return {"status": "Matriz diária salva com sucesso"}
+    
     except Exception as e:
-        logging.error("Não foi possível processar a matriz diária")
+        logging.error(f"Não foi possível processar a matriz diária: {str(e)}")
+
+
+
 
 
 # SOMENTE LEITURA DE DADOS
 async def get_hourly_matrices():
     garden_db = await get_garden_db()
-    return await garden_db.hourly_correlation.find().to_list(length=None)
+    try:
+        matrices = await garden_db.hourly_correlation.find().to_list(length=None)
+        return {"status": "success", "data": matrices}
+    except Exception as e:
+        logging.error("Erro ao obter matrizes horárias: %s", e)
+        return {"status": "error", "message": str(e)}
 
 async def get_daily_matrices():
     garden_db = await get_garden_db()
-    return await garden_db.daily_correlation.find().to_list(length=None)
+    try:
+        matrices = await garden_db.daily_correlation.find().to_list(length=None)        
+        return {"status": "success", "data": matrices}
+    except Exception as e:
+        logging.error("Erro ao obter matrizes diárias: %s", e)
+        return {"status": "error", "message": str(e)}
 
 async def get_images():
     garden_db = await get_garden_db()
-    return await garden_db.images.find().to_list(length=None)
+    try:
+        images = await garden_db.images.find().to_list(length=None)        
+        return {"status": "success", "data": images}
+    except Exception as e:
+        logging.error("Erro ao obter imagens: %s", e)
+        return {"status": "error", "message": str(e)}
+
+async def get_original_json():
+    garden_db = await get_garden_db()
+    try:
+        original_json = await garden_db.original_json.find().to_list(length=None)        
+        return {"status": "success", "data": original_json}
+    except Exception as e:
+        logging.error("Erro ao obter JSON original: %s", e)
+        return {"status": "error", "message": str(e)}
+        

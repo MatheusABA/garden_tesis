@@ -44,4 +44,4 @@ while True:
     send_sensor_data("LDR", "LUMINOSIDADE", random.randint(200, 800))  # Enviando luminosidade
 
     # Aguarda 1 minuto antes de enviar novamente
-    time.sleep(5)  # Intervalo de 1 minuto
+    time.sleep(1)  # Intervalo de 1 minuto
