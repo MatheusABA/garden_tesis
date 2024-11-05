@@ -39,9 +39,11 @@ def send_sensor_data(sensor_type, measure_type, measure_value):
 while True:
     # Exemplos de dados para cada sensor
     send_sensor_data("DHT11", "UMIDADE RELATIVA AR", random.randint(50, 90))  # Enviando umidade
-    send_sensor_data("DHT11", "TEMPERATURA", random.randint(15, 35))  # Enviando temperatura
-    send_sensor_data("MQ7", "CO2", random.randint(300, 500))  # Enviando nível de CO2
+    send_sensor_data("HIGR", "UMIDADE RELATIVA SOLO", random.randint(50, 90))  # Enviando umidade
+    send_sensor_data("DHT11", "TEMPERATURA AR", random.randint(15, 35))  # Enviando temperatura
+    send_sensor_data("NPC", "TEMPERATURA SOLO", random.randint(15, 35))  # Enviando temperatura
+    send_sensor_data("MQ7", "CO", random.randint(300, 500))  # Enviando nível de CO2
     send_sensor_data("LDR", "LUMINOSIDADE", random.randint(200, 800))  # Enviando luminosidade
 
     # Aguarda 1 minuto antes de enviar novamente
-    time.sleep(1)  # Intervalo de 1 minuto
+    time.sleep(10)  # Intervalo de 1 minuto

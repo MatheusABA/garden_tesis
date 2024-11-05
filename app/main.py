@@ -35,4 +35,4 @@ async def schedule_daily_processing():
     """Agenda o processamento da matriz diária a cada 24 horas."""
     while True:
         await process_daily_correlation()
-        await asyncio.sleep(10)  # 86400 = Espera 24 horas
+        await asyncio.sleep(30)  # 86400 = Espera 24 horas
