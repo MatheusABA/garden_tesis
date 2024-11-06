@@ -26,6 +26,7 @@ app.include_router(sensor_router, prefix="/api")  # Sensor Route
 @app.on_event("startup")
 async def startup_event():
     try:
+        logging.info("Iniciando aplicação")
         await connection()        # Database connection
         asyncio.create_task(schedule_daily_processing())    
     except Exception as e:

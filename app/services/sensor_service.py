@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Buffer para armazenar temporariamente os dados dos sensores
 sensor_data_buffer = []
-BUFFER_LIMIT = 12  # Defina o limite de dados a serem acumulados (60 = 1hora)
+BUFFER_LIMIT = 2880  # Defina o limite de dados a serem acumulados (60 = 1hora)
 
 BUFFER_FILE_PATH = "sensor_data.json"
 
@@ -26,9 +26,6 @@ def save_buffer_locally(buffer):
         logging.info("Buffer salvo localmente em %s", BUFFER_FILE_PATH)
     except Exception as e:
         logging.error("Erro ao salvar buffer localmente", exc_info=True)
-
-
-
 
 async def store_sensor_data(package_data):
         
@@ -43,8 +40,6 @@ async def store_sensor_data(package_data):
         sensor_data_buffer.append(sensor_data.dict())
         
     # sensor_data_buffer.append(package_data.data)
-        
-    
         
     save_buffer_locally(sensor_data_buffer)
 
