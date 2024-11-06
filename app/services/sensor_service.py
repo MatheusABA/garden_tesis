@@ -4,6 +4,8 @@ import os
 import logging
 from .image_service import capture_image
 import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
 from datetime import datetime
 
 # Logs de erros
@@ -11,7 +13,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Buffer para armazenar temporariamente os dados dos sensores
 sensor_data_buffer = []
-BUFFER_LIMIT = 24  # Defina o limite de dados a serem acumulados (60 = 1hora)
+BUFFER_LIMIT = 12  # Defina o limite de dados a serem acumulados (60 = 1hora)
 
 BUFFER_FILE_PATH = "sensor_data.json"
 
@@ -72,6 +74,7 @@ async def store_sensor_data(package_data):
             
         except Exception as e:
             logging.error("Erro ao processar matriz horária", exc_info=e)
+            sensor_data_buffer.clear()
             return {"status": "Erro ao processar matriz horária", "error": str(e)}
         
         
@@ -95,8 +98,31 @@ async def save_hourly_correlation(hourly_correlation):
         logging.info("Tentando salvar correlação horária: %s", hourly_correlation)
         await garden_db.hourly_correlation.insert_one(correlation_data)
         logging.info("Matriz horária salva com sucesso!")
+        
+        # Plot e salva o heatmap da matriz de correlação
+        labels = ['UMIDADE', 'TEMPERATURA', 'CO', 'LUMINOSIDADE']
+        fig, ax = plt.subplots(figsize=(10, 8))
+        sns.heatmap(hourly_correlation, annot=True, cmap="coolwarm", xticklabels=labels, yticklabels=labels, ax=ax)
+        plt.title("Matriz de Correlação Horária dos Sensores")
+        plt.xlabel("Sensores")
+        plt.ylabel("Sensores")
+        
+        # Define o caminho e o nome do arquivo para salvar o plot
+        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        plot_filename = f"correlation_plot_{timestamp_str}.png"
+        plot_filepath = os.path.join("plots", plot_filename)
+
+        # Cria o diretório 'plots' se não existir
+        os.makedirs("plots", exist_ok=True)
+
+        # Salva o plot localmente
+        plt.savefig(plot_filepath)
+        plt.close()
+        
+        logging.info("Plot de correlação horária salvo em %s", plot_filepath)
+                    
     except Exception as e:
-        logging.error("Erro ao salvar matriz horária")
+        logging.error("Erro ao salvar matriz horária", exc_info=True)
 
 
 
@@ -120,33 +146,13 @@ async def save_hourly_json(original_json):
     
 def process_to_hourly_correlation(data):
     """Processa o buffer e gera a matriz horária e JSON dos dados."""
-    try :
-        
-        # # ATUALMENTE FUNCIONA, POREM PRECISA ARRUMAR PARA A CORRELACAO DE PEARSON
-        # logging.info("Dados recebidos para correlação horária: %s", data)
-        
-        # sensor_values = np.array([[d['measure_value']] for d in data["data"]])
-        
-        
-        # correlation_matrix = np.corrcoef(sensor_values, rowvar=True)
-        
-        # logging.info(correlation_matrix)
-        # # Cria a matriz horária como uma média dos dados
-        # hourly_correlation = {
-        #     "timestamp": data["timestamp"],
-        #     "correlation_matrix": correlation_matrix.tolist(),
-        #     "processed": False
-        # }        
-        
-        # logging.info(hourly_correlation)
-        # return hourly_correlation
-        
+    try :        
         # TESTES PARA SALVAR CADA VALOR DOS SENSORES EM DICIONARIO PARA PASSAR AO CORRCOE DO NUMMPY
         # Dicionário para organizar valores de cada tipo de medida
         measures = {
-            'UMIDADE RELATIVA AR': [],
+            'UMIDADE': [],
             'TEMPERATURA': [],
-            'CO2': [],
+            'CO': [],
             'LUMINOSIDADE': []
         }
         
@@ -159,9 +165,9 @@ def process_to_hourly_correlation(data):
         
         # Cria uma matriz onde cada linha representa uma série de dados de medida
         series_data = [
-            measures['UMIDADE RELATIVA AR'],
+            measures['UMIDADE'],
             measures['TEMPERATURA'],
-            measures['CO2'],
+            measures['CO'],
             measures['LUMINOSIDADE']
         ]
         
