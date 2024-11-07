@@ -1,5 +1,5 @@
 import requests
-import json
+import random
 import time
 from datetime import datetime
 
@@ -38,10 +38,12 @@ def send_sensor_data(sensor_type, measure_type, measure_value):
 # Loop para enviar dados continuamente
 while True:
     # Exemplos de dados para cada sensor
-    send_sensor_data("DHT11", "umidade", 60.5)  # Enviando umidade
-    send_sensor_data("DHT11", "temperatura", 24.0)  # Enviando temperatura
-    send_sensor_data("MQ7", "co2", 400)  # Enviando nível de CO2
-    send_sensor_data("LDR", "luminosidade", 300)  # Enviando luminosidade
+    send_sensor_data("DHT11", "UMIDADE RELATIVA AR", random.randint(50, 90))  # Enviando umidade
+    send_sensor_data("HIGR", "UMIDADE RELATIVA SOLO", random.randint(50, 90))  # Enviando umidade
+    send_sensor_data("DHT11", "TEMPERATURA AR", random.randint(15, 35))  # Enviando temperatura
+    send_sensor_data("NPC", "TEMPERATURA SOLO", random.randint(15, 35))  # Enviando temperatura
+    send_sensor_data("MQ7", "CO", random.randint(300, 500))  # Enviando nível de CO2
+    send_sensor_data("LDR", "LUMINOSIDADE", random.randint(200, 800))  # Enviando luminosidade
 
     # Aguarda 1 minuto antes de enviar novamente
-    time.sleep(5)  # Intervalo de 1 minuto
+    time.sleep(10)  # Intervalo de 1 minuto

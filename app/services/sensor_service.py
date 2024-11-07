@@ -12,6 +12,7 @@ logging.basicConfig(level=logging.INFO)
 # Buffer para armazenar temporariamente os dados dos sensores
 sensor_data_buffer = []
 BUFFER_LIMIT = 36  # Defina o limite de dados a serem acumulados (60 = 1hora)
+BUFFER_LIMIT = 36  # Defina o limite de dados a serem acumulados (60 = 1hora)
 BUFFER_FILE_PATH = "sensor_data.json"
 
 
@@ -27,16 +28,20 @@ def save_buffer_locally(buffer):
 
 async def store_sensor_data(package_data):
     "PEGAR DADOS DOS SENSORES, ENCAPSULAR"
+    "PEGAR DADOS DOS SENSORES, ENCAPSULAR"
     
     if not package_data.data:
         logging.warning("Nenhum dado disponível")
         return {"status": "No data provided", "inserted_id": []}
         
+        
     # Adiciona os dados no buffer
     for sensor_data in package_data.data:
         print(f"\033[91m {sensor_data.dict()} \033[00m")
+        print(f"\033[91m {sensor_data.dict()} \033[00m")
         sensor_data_buffer.append(sensor_data.dict())
     # sensor_data_buffer.append(package_data.data)
+    save_buffer_locally(sensor_data_buffer)  
     save_buffer_locally(sensor_data_buffer)  
 
     if  len(sensor_data_buffer) >= BUFFER_LIMIT:
@@ -54,6 +59,7 @@ async def store_sensor_data(package_data):
                 "data": sensor_data_buffer,
                 "timestamp": timestamp
             }
+                            
                             
             await save_hourly_json(original_json)
             await save_hourly(mean, original_json)
@@ -87,6 +93,7 @@ async def save_hourly(mean, original_json):
         logging.info("Matriz horária salva com sucesso!")
     except Exception as e:
         logging.error("Erro ao salvar matriz horária")
+        logging.error("Erro ao salvar matriz horária")
 
 
 async def save_hourly_json(original_json):
@@ -96,6 +103,7 @@ async def save_hourly_json(original_json):
         logging.info("Tentando salvar JSON original: %s", original_json)
         await garden_db.hourly_json.insert_one(original_json)
         logging.info("JSON original salvo com sucesso.")
+                
                 
     except Exception as e:
         logging.error("Erro ao salvar json original: %s", e)
@@ -155,6 +163,13 @@ async def get_hourly_matrices():
         logging.error("Erro ao obter matrizes horárias: %s", e)
         return {"status": "error", "message": str(e)}
 
+    try:
+        matrices = await garden_db.hourly_correlation.find().to_list(length=None)
+        return {"status": "success", "data": matrices}
+    except Exception as e:
+        logging.error("Erro ao obter matrizes horárias: %s", e)
+        return {"status": "error", "message": str(e)}
+
 
 async def get_daily_matrices():
     garden_db = await get_garden_db()
@@ -165,9 +180,33 @@ async def get_daily_matrices():
         logging.error("Erro ao obter matrizes diárias: %s", e)
         return {"status": "error", "message": str(e)}
 
+    try:
+        matrices = await garden_db.daily_correlation.find().to_list(length=None)        
+        return {"status": "success", "data": matrices}
+    except Exception as e:
+        logging.error("Erro ao obter matrizes diárias: %s", e)
+        return {"status": "error", "message": str(e)}
+
 
 async def get_images():
     garden_db = await get_garden_db()
+    try:
+        images = await garden_db.images.find().to_list(length=None)        
+        return {"status": "success", "data": images}
+    except Exception as e:
+        logging.error("Erro ao obter imagens: %s", e)
+        return {"status": "error", "message": str(e)}
+
+
+async def get_original_json():
+    garden_db = await get_garden_db()
+    try:
+        original_json = await garden_db.original_json.find().to_list(length=None)        
+        return {"status": "success", "data": original_json}
+    except Exception as e:
+        logging.error("Erro ao obter JSON original: %s", e)
+        return {"status": "error", "message": str(e)}
+        
     try:
         images = await garden_db.images.find().to_list(length=None)        
         return {"status": "success", "data": images}
