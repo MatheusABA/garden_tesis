@@ -11,8 +11,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Buffer para armazenar temporariamente os dados dos sensores
 sensor_data_buffer = []
-BUFFER_LIMIT = 4  # Defina o limite de dados a serem acumulados (60 = 1hora)
-
+BUFFER_LIMIT = 36  # Defina o limite de dados a serem acumulados (60 = 1hora)
 BUFFER_FILE_PATH = "sensor_data.json"
 
 
@@ -26,71 +25,68 @@ def save_buffer_locally(buffer):
         logging.error("Erro ao salvar buffer localmente", exc_info=True)
 
 
-
-
 async def store_sensor_data(package_data):
-        
-    # PEGAR DADOS DOS SENSORES, ENCAPSULAR
+    "PEGAR DADOS DOS SENSORES, ENCAPSULAR"
     
     if not package_data.data:
         logging.warning("Nenhum dado disponível")
         return {"status": "No data provided", "inserted_id": []}
-    
+        
     # Adiciona os dados no buffer
     for sensor_data in package_data.data:
+        print(f"\033[91m {sensor_data.dict()} \033[00m")
         sensor_data_buffer.append(sensor_data.dict())
-        
     # sensor_data_buffer.append(package_data.data)
-        
-    
-        
-    save_buffer_locally(sensor_data_buffer)
+    save_buffer_locally(sensor_data_buffer)  
 
     if  len(sensor_data_buffer) >= BUFFER_LIMIT:
         try:
             # Construindo matriz horaria
             timestamp = package_data.data[0].timestamp
-            
-            
-            hourly_correlation = process_to_hourly_correlation({
+
+            mean = process_mean({
                 "data": sensor_data_buffer,
                 "timestamp": timestamp,
             })
             
+            # Encapsulando json original para salvar no banco 
             original_json = {
                 "data": sensor_data_buffer,
                 "timestamp": timestamp
             }
-            
-            if hourly_correlation is None:
-                logging.error("Erro no processamento dos dados de correlação horária.")
-                
-    
+                            
             await save_hourly_json(original_json)
-            await save_hourly_correlation(hourly_correlation)
+            await save_hourly(mean, original_json)
             
             sensor_data_buffer.clear()
             
         except Exception as e:
             logging.error("Erro ao processar matriz horária", exc_info=e)
             return {"status": "Erro ao processar matriz horária", "error": str(e)}
-        
-        
 
     return  {
         "status": "Dados armazenados no buffer e serão salvos quando o buffer estiver cheio!",
         "insert_id": None
     }
 
-async def save_hourly_correlation(hourly_correlation):
+
+async def save_hourly(mean, original_json):
     "Salva matriz horaria na colleciton hourly_matrices"
     garden_db = await get_garden_db()
+    print(f"Teste - {original_json}")
     try:
-        await garden_db.hourly_correlation.insert_one(hourly_correlation)
+        original_json = original_json.tolist()  # Converte para lista
+        hourly_data = {
+        "timestamp": datetime.utcnow(),  # Adiciona timestamp atual
+        "sensor_mean": mean,
+        "processed": False
+        }
+
+        logging.info("Tentando salvar dados horários: %s", original_json)
+        await garden_db.hourly_correlation.insert_one(hourly_data)
+        logging.info("Matriz horária salva com sucesso!")
     except Exception as e:
-        logging.error("Erro ao salvar matriz diaria")
-
-
+        logging.error("Erro ao salvar matriz horária")
 
 
 async def save_hourly_json(original_json):
@@ -100,97 +96,92 @@ async def save_hourly_json(original_json):
         logging.info("Tentando salvar JSON original: %s", original_json)
         await garden_db.hourly_json.insert_one(original_json)
         logging.info("JSON original salvo com sucesso.")
-            
-            
+                
     except Exception as e:
         logging.error("Erro ao salvar json original: %s", e)
         logging.info("Estrutura do original_json: %s", type(original_json))
         
-    
-    
-    
-    
-def process_to_hourly_correlation(data):
-    """Processa o buffer e gera a matriz horária e JSON dos dados."""
-    try :
-        logging.info("Dados recebidos para correlação horária: %s", data)
-        
-        sensor_values = np.array([list(d.values()) for d in data["data"]])
-        # sensor_values = []
-        # for d in data["data"]:
-        #     sensor_values.append(float(d['measure_value']))
-        
-        # sensor_values = np.array(sensor_values)
-        
-        correlation_matrix = np.corrcoef(sensor_values, rowvar=False)
-        # correlation_matrix = np.corrcoef(sensor_values.reshape(-1, len(data["data"])), rowvar=False)
-        
-        # Cria a matriz horária como uma média dos dados
-        hourly_correlation = {
-            "timestamp": data["timestamp"],
-            "correlation_matrix": correlation_matrix.tolist(),
-            "processed": False
-        }        
-        
-        logging.info(hourly_correlation)
-        return hourly_correlation
-    
-    except Exception as e:
-        logging.error("Não foi possível processar a correlação diária")
-        return None, None
-        
-    
-    
 
-async def process_daily_correlation():
-    """Processa as matrizes horárias para criar uma matriz diária e salva na coleção 'daily_matrices'."""
+def process_mean(data):
+    """Processa os dados dos sensores para realizar a média (Horária ou Diária)"""
+
     try:
-        garden_db = await get_garden_db()
-        # Coleta todas as matrizes horárias do dia
-        current_date = datetime.now().date()
-        hourly_correlations = await garden_db.hourly_correlations.find({"processed": False}).to_list(length=None)
-
-        if not hourly_correlations:
-            return {"status": "Não há matrizes disponíveis para realizar a matriz diária"}
-
-        # Calcula a média diária
-        mean_daily_correlation = np.mean([entry["mean_values"] for entry in hourly_correlations], axis=0).tolist()
-        timestamp = datetime.now()
-        
-        # Captura e salva a imagem do plantio
-        image_filename = await capture_image()
-        
-        # Estrutura a matriz diária com a média calculada e a imagem
-        daily_correlation = {
-            "timestamp": timestamp,
-            "correlation_matrix": mean_daily_correlation,
-            "image_filename": image_filename
+        measures = {
+            'UMIDADE RELATIVA AR': [],
+            'UMIDADE RELATIVA SOLO': [],
+            'TEMPERATURA AR': [],
+            'TEMPERATURA SOLO': [],
+            'CO': [],
+            'LUMINOSIDADE': []
         }
-
-        # Salva a matriz diária na coleção 'daily_matrices'
-        await garden_db.daily_correlation.insert_one(daily_correlation)
         
-        # Atualiza as matrizes para processadas agora
-        for entry in hourly_correlations:
-            await garden_db.hourly_correlation.update_one(
-                {"_id": entry["_id"]},
-                {"$set": {"processed": True}}
-            )
-            
-        return {"status": "Daily matrix successfully saved"}
+        # Preenchendo as listas de medidas com base nos dados recebidos
+        for entry in data['data']:
+            measure_type = entry['measure_type']
+            measure_value = entry['measure_value']
+            if measure_type in measures:
+                measures[measure_type].append(measure_value)
+        
+        # Cria uma matriz onde cada linha representa uma série de dados de medida
+        series_data = [
+            measures['UMIDADE RELATIVA AR'],
+            measures['UMIDADE RELATIVA SOLO'],
+            measures['TEMPERATURA AR'],
+            measures['TEMPERATURA SOLO'],
+            measures['CO'],
+            measures['LUMINOSIDADE']
+        ]
+
+        means = []
+
+        for line in series_data:
+            if len(line) > 0:
+                # Calcular a média dos valores
+                means.append(sum(line) / len(line))
+        return  means
+    
     except Exception as e:
-        logging.error("Não foi possível processar a matriz diária")
+        logging.error("Erro ao processar dados: %s", e)
+        return None
 
 
 # SOMENTE LEITURA DE DADOS
 async def get_hourly_matrices():
     garden_db = await get_garden_db()
-    return await garden_db.hourly_correlation.find().to_list(length=None)
+    try:
+        matrices = await garden_db.hourly_correlation.find().to_list(length=None)
+        return {"status": "success", "data": matrices}
+    except Exception as e:
+        logging.error("Erro ao obter matrizes horárias: %s", e)
+        return {"status": "error", "message": str(e)}
+
 
 async def get_daily_matrices():
     garden_db = await get_garden_db()
-    return await garden_db.daily_correlation.find().to_list(length=None)
+    try:
+        matrices = await garden_db.daily_correlation.find().to_list(length=None)        
+        return {"status": "success", "data": matrices}
+    except Exception as e:
+        logging.error("Erro ao obter matrizes diárias: %s", e)
+        return {"status": "error", "message": str(e)}
+
 
 async def get_images():
     garden_db = await get_garden_db()
-    return await garden_db.images.find().to_list(length=None)
+    try:
+        images = await garden_db.images.find().to_list(length=None)        
+        return {"status": "success", "data": images}
+    except Exception as e:
+        logging.error("Erro ao obter imagens: %s", e)
+        return {"status": "error", "message": str(e)}
+
+
+async def get_original_json():
+    garden_db = await get_garden_db()
+    try:
+        original_json = await garden_db.original_json.find().to_list(length=None)        
+        return {"status": "success", "data": original_json}
+    except Exception as e:
+        logging.error("Erro ao obter JSON original: %s", e)
+        return {"status": "error", "message": str(e)}
+        

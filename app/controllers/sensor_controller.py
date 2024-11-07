@@ -11,14 +11,6 @@ async def store_data(package_data: PackageData):
     result =  await store_sensor_data(package_data)
     return result
 
-# @router.post("/correlation")
-# async def correlate_data(package_data: PackageData):
-#     result =  await store_sensor_data(package_data)
-#     if result["inserted_id"] is None:
-#         raise HTTPException(status_code=400, detail=result["status"]) 
-    
-#     return result
-
 
 @router.get("/hourly_matrices")
 async def fetch_hourly_matrices():
