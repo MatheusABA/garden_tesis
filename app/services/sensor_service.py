@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Buffer para armazenar temporariamente os dados dos sensores
 sensor_data_buffer = []
-BUFFER_LIMIT = 2880  # Defina o limite de dados a serem acumulados (60 = 1hora)
+BUFFER_LIMIT = 16 # Defina o limite de dados a serem acumulados (60 = 1hora)
 
 BUFFER_FILE_PATH = "sensor_data.json"
 
@@ -42,7 +42,7 @@ async def store_sensor_data(package_data):
     # sensor_data_buffer.append(package_data.data)
         
     save_buffer_locally(sensor_data_buffer)
-
+    logging.info(len(sensor_data_buffer))
     if  len(sensor_data_buffer) >= BUFFER_LIMIT:
         try:
             # Construindo matriz horaria
@@ -97,10 +97,21 @@ async def save_hourly_correlation(hourly_correlation):
         # Plot e salva o heatmap da matriz de correlação
         labels = ['UMIDADE', 'TEMPERATURA', 'CO', 'LUMINOSIDADE']
         fig, ax = plt.subplots(figsize=(10, 8))
-        sns.heatmap(hourly_correlation, annot=True, cmap="coolwarm", xticklabels=labels, yticklabels=labels, ax=ax)
+        sns.heatmap(hourly_correlation, annot=True, cmap="coolwarm", xticklabels=labels, yticklabels=labels , ax=ax)
         plt.title("Matriz de Correlação Horária dos Sensores")
         plt.xlabel("Sensores")
         plt.ylabel("Sensores")
+
+        # Anotação explicativa sobre os valores da correlação
+        text = (
+            "Valores de Correlação:\n"
+            "+1: Correlação positiva perfeita\n"
+            "-1: Correlação negativa perfeita\n"
+            "0: Nenhuma correlação linear"
+        )        
+        
+        plt.text(1.5, -0.5, text, fontsize=10, color="black", ha="center", va="center", transform=ax.transAxes)
+        
         
         # Define o caminho e o nome do arquivo para salvar o plot
         timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
