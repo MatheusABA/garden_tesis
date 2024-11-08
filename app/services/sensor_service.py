@@ -7,6 +7,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # Logs de erros
 logging.basicConfig(level=logging.INFO) 
@@ -14,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 # Buffer para armazenar temporariamente os dados dos sensores
 sensor_data_buffer = []
 # Defina o limite de dados a serem acumulados (60 = 1hora)
-BUFFER_LIMIT = 36  
+BUFFER_LIMIT = 8 
 # Caminho do arquivo json salvo temporariamente antes de ser enviado ao banco se desejar
 BUFFER_FILE_PATH = "sensor_data.json"
 HOURLY_DATA_DIR = "data/hourly_data"
@@ -86,22 +87,25 @@ async def save_hourly_data(mean, original_json):
     garden_db = await get_garden_db()
     # print(f"Teste - {original_json}")
     try:
-        original_json = original_json.tolist()  # Converte para lista
+        # original_json = original_json.tolist()  # Converte para lista
+
         hourly_data = {
-        "timestamp": datetime.utcnow(),  # Adiciona timestamp atual
-        "sensor_mean": mean,
-        "processed": False
+            "timestamp": datetime.now(ZoneInfo("America/Cuiaba")),  # Adiciona timestamp atual
+            "sensor_mean": mean,
+            "processed": False
         }
 
-        logging.info("Tentando salvar dados horários: %s", original_json)
+        logging.info("Tentando salvar dados horários: %s", hourly_data)
         
         # Armazena no banco - COMENTAR LINHA CASO ARMAZENAMENTO SEJA SOMENTE LOCAL
         await garden_db.hourly_data.insert_one(hourly_data) 
         
+        save_local_data(hourly_data, HOURLY_DATA_DIR, "hourly")
+        
         
         logging.info("Dados horários salva com sucesso!")
     except Exception as e:
-        logging.error("Erro ao salvar dados horários")
+        logging.error("Erro ao salvar dados horários", e)
 
 
 # ------------------------------- ARMAZENAMENTO DE DADOS DIARIOS -----------------------------------
@@ -110,15 +114,20 @@ async def save_daily_data(mean, original_json):
     garden_db = await get_garden_db()
     # print(f"Teste - {original_json}")
     try:
-        original_json = original_json.tolist()  # Converte para lista
-        hourly_data = {
-        "timestamp": datetime.utcnow(),  # Adiciona timestamp atual
-        "sensor_mean": mean,
-        "processed": False
+        # original_json = original_json.tolist()  # Converte para lista
+        daily_data = {
+            "timestamp": datetime.now(tz="3"),  # Adiciona timestamp atual
+            "sensor_mean": mean,
+            "processed": False
         }
 
-        logging.info("Tentando salvar dados diários: %s", original_json)
-        await garden_db.hourly_data.insert_one(hourly_data)
+        logging.info("Tentando salvar dados diários: %s", daily_data)
+        
+        
+        await garden_db.daily_data.insert_one(daily_data.tolist())
+        
+        save_local_data(daily_data, DAILY_DATA_DIR, "daily")
+        
         logging.info("Dados diários salva com sucesso!")
     except Exception as e:
         logging.error("Erro ao salvar dados diários")
@@ -160,7 +169,7 @@ def process_mean(data):
     try:
         measures = {
             'UMIDADE': [],
-            'TEMPERATURA AR': [],
+            'TEMPERATURA': [],
             'CO': [],
             'LUMINOSIDADE': []
         }
@@ -172,25 +181,89 @@ def process_mean(data):
             if measure_type in measures:
                 measures[measure_type].append(measure_value)
         
-        # Cria uma matriz onde cada linha representa uma série de dados de medida
-        series_data = [
-            measures['UMIDADE'],
-            measures['TEMPERATURA'],
-            measures['CO'],
-            measures['LUMINOSIDADE']
-        ]
 
-        means = []
+        means = {}
 
-        for line in series_data:
-            if len(line) > 0:
+        for measure_type, values in measures.items():
+            if values:
                 # Calcular a média dos valores
-                means.append(sum(line) / len(line))
+                means[measure_type] = sum(values)/len(values)
         return  means
     
     except Exception as e:
         logging.error("Erro ao processar dados: %s", e)
         return None
+
+
+async def process_daily_data():
+    """Processa as matrizes horárias para criar uma matriz diária e salva na coleção 'daily_data'."""
+    try:
+        logging.info("Tentando processar a matriz diária")
+        garden_db = await get_garden_db()
+
+        # Coleta todas as matrizes horárias não processadas
+        current_date = datetime.now().date()
+        hourly_data_entries = await garden_db.hourly_data.find({"processed": False}).to_list(length=None)
+        logging.info(hourly_data_entries)
+        if not hourly_data_entries:
+            logging.info("Não há matrizes disponíveis para realizar a matriz diária")
+            return {"status": "Não há matrizes disponíveis para realizar a matriz diária"}
+
+        # Verifica se as matrizes horárias possuem valores válidos
+        if not all(entry.get("sensor_mean") for entry in hourly_data_entries):
+            logging.error("Algumas matrizes horárias não possuem valores válidos.")
+            return {"status": "Erro ao processar matrizes horárias"}
+
+        # Calcula a média diária para cada sensor (UMIDADE, TEMPERATURA, CO, LUMINOSIDADE)
+        sensor_means = {
+            "UMIDADE": [],
+            "TEMPERATURA": [],
+            "CO": [],
+            "LUMINOSIDADE": []
+        }
+        
+        # Preenche as listas com os valores dos sensores de todas as entradas horárias
+        for entry in hourly_data_entries:
+            for sensor, value in entry["sensor_mean"].items():
+                sensor_means[sensor].append(value)
+
+        # Calcula a média de cada sensor
+        mean_daily = {sensor: np.mean(values) for sensor, values in sensor_means.items()}
+
+        timestamp = datetime.now(ZoneInfo('America/Cuiaba'))
+
+        # Captura e salva a imagem do plantio
+        image_filename = await capture_image()
+
+        # Estrutura a matriz diária com a média calculada e a imagem
+        daily_data = {
+            "timestamp": timestamp,
+            "sensor_mean": mean_daily,
+            "image_filename": "image_filename",  # Correção aqui
+            "processed": False
+        }
+
+        # Salva a matriz diária no banco de dados
+        await garden_db.daily_data.insert_one(daily_data)
+        
+        # Salva a matriz diária localmente
+        save_local_data(daily_data, DAILY_DATA_DIR, "daily")
+
+        logging.info("Matriz diária salva com sucesso no banco de dados e localmente.")
+
+        # Marca as matrizes horárias como processadas
+        for entry in hourly_data_entries:
+            await garden_db.hourly_data.update_one(
+                {"_id": entry["_id"]},
+                {"$set": {"processed": True}}
+            )
+
+        return {"status": "Matriz diária salva com sucesso"}
+
+    except Exception as e:
+        logging.error(f"Não foi possível processar a matriz diária: {str(e)}")
+        return {"status": "Erro ao processar matriz diária", "error": str(e)}
+
 
 
 # ---------------------------- SOMENTE LEITURA DE DADOS ------------------------

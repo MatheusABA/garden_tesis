@@ -38,10 +38,8 @@ def send_sensor_data(sensor_type, measure_type, measure_value):
 # Loop para enviar dados continuamente
 while True:
     # Exemplos de dados para cada sensor
-    send_sensor_data("DHT11", "UMIDADE RELATIVA AR", random.randint(50, 90))  # Enviando umidade
-    send_sensor_data("HIGR", "UMIDADE RELATIVA SOLO", random.randint(50, 90))  # Enviando umidade
-    send_sensor_data("DHT11", "TEMPERATURA AR", random.randint(15, 35))  # Enviando temperatura
-    send_sensor_data("NPC", "TEMPERATURA SOLO", random.randint(15, 35))  # Enviando temperatura
+    send_sensor_data("HIGR", "UMIDADE", random.randint(50, 90))  # Enviando umidade
+    send_sensor_data("NTC", "TEMPERATURA", random.randint(15, 35))  # Enviando temperatura
     send_sensor_data("MQ7", "CO", random.randint(300, 500))  # Enviando nível de CO2
     send_sensor_data("LDR", "LUMINOSIDADE", random.randint(200, 800))  # Enviando luminosidade
 

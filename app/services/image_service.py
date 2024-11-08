@@ -50,7 +50,8 @@ async def capture_image():
         # Salvando a imagem localmente
         if cv2.imwrite(image_filename, frame):
             logging.info(f"Imagem capturada e salva como {image_filename}")
-            await save_image_to_db(image_filename)
+            
+            await save_image_to_db(image_filename)      # Salva no banco e localmente
 
             # Linha para remover imagem local após ele salvar no banco
             # os.remove(image_filename)
