@@ -4,6 +4,8 @@ import os
 import logging
 from .image_service import capture_image
 import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
 from datetime import datetime
 
 # Logs de erros
@@ -11,9 +13,15 @@ logging.basicConfig(level=logging.INFO)
 
 # Buffer para armazenar temporariamente os dados dos sensores
 sensor_data_buffer = []
-BUFFER_LIMIT = 36  # Defina o limite de dados a serem acumulados (60 = 1hora)
-BUFFER_LIMIT = 36  # Defina o limite de dados a serem acumulados (60 = 1hora)
+# Defina o limite de dados a serem acumulados (60 = 1hora)
+BUFFER_LIMIT = 36  
+# Caminho do arquivo json salvo temporariamente antes de ser enviado ao banco se desejar
 BUFFER_FILE_PATH = "sensor_data.json"
+HOURLY_DATA_DIR = "data/hourly_data"
+DAILY_DATA_DIR = "data/daily_data"
+
+os.makedirs(HOURLY_DATA_DIR, exist_ok=True)
+os.makedirs(DAILY_DATA_DIR, exist_ok=True)
 
 
 def save_buffer_locally(buffer):
@@ -28,7 +36,6 @@ def save_buffer_locally(buffer):
 
 async def store_sensor_data(package_data):
     "PEGAR DADOS DOS SENSORES, ENCAPSULAR"
-    "PEGAR DADOS DOS SENSORES, ENCAPSULAR"
     
     if not package_data.data:
         logging.warning("Nenhum dado disponível")
@@ -38,10 +45,8 @@ async def store_sensor_data(package_data):
     # Adiciona os dados no buffer
     for sensor_data in package_data.data:
         print(f"\033[91m {sensor_data.dict()} \033[00m")
-        print(f"\033[91m {sensor_data.dict()} \033[00m")
         sensor_data_buffer.append(sensor_data.dict())
-    # sensor_data_buffer.append(package_data.data)
-    save_buffer_locally(sensor_data_buffer)  
+
     save_buffer_locally(sensor_data_buffer)  
 
     if  len(sensor_data_buffer) >= BUFFER_LIMIT:
@@ -77,9 +82,9 @@ async def store_sensor_data(package_data):
 
 
 async def save_hourly_data(mean, original_json):
-    "Salva dados horarios na collection hourly_data"
+    "Salva dados horarios na collection hourly_data e localmente"
     garden_db = await get_garden_db()
-    print(f"Teste - {original_json}")
+    # print(f"Teste - {original_json}")
     try:
         original_json = original_json.tolist()  # Converte para lista
         hourly_data = {
@@ -89,16 +94,21 @@ async def save_hourly_data(mean, original_json):
         }
 
         logging.info("Tentando salvar dados horários: %s", original_json)
-        await garden_db.hourly_data.insert_one(hourly_data)
+        
+        # Armazena no banco - COMENTAR LINHA CASO ARMAZENAMENTO SEJA SOMENTE LOCAL
+        await garden_db.hourly_data.insert_one(hourly_data) 
+        
+        
         logging.info("Dados horários salva com sucesso!")
     except Exception as e:
         logging.error("Erro ao salvar dados horários")
 
 
+# ------------------------------- ARMAZENAMENTO DE DADOS DIARIOS -----------------------------------
 async def save_daily_data(mean, original_json):
-    "Salva dados diários na collection daily_data"
+    "Salva dados diários na collection daily_data e localmente"
     garden_db = await get_garden_db()
-    print(f"Teste - {original_json}")
+    # print(f"Teste - {original_json}")
     try:
         original_json = original_json.tolist()  # Converte para lista
         hourly_data = {
@@ -113,12 +123,12 @@ async def save_daily_data(mean, original_json):
     except Exception as e:
         logging.error("Erro ao salvar dados diários")
 
-
+# ------------------------------- ARMAZENAMENTO DE DADOS HORARIOS -----------------------------------
 async def save_hourly_json(original_json):
     "Salva json original para o usuario realizar quais metricas ele quiser"
     garden_db = await get_garden_db()
     try:
-        logging.info("Tentando salvar JSON original: %s", original_json)
+        # logging.info("Tentando salvar JSON original: %s", original_json)
         await garden_db.hourly_json.insert_one(original_json)
         logging.info("JSON original salvo com sucesso.")
                 
@@ -126,17 +136,31 @@ async def save_hourly_json(original_json):
     except Exception as e:
         logging.error("Erro ao salvar json original: %s", e)
         logging.info("Estrutura do original_json: %s", type(original_json))
-        
 
+
+
+# ------------------------------- FUNCAO PARA ARMAZENAR DADOS -----------------------------------
+def save_local_data(data, directory, data_type):
+    """Salva dados localmente em um arquivo JSON na pasta específica."""
+    timestamp_str = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
+    file_path = os.path.join(directory, f"{data_type}_data_{timestamp_str}.json")
+    try:
+        with open(file_path, 'w') as f:
+            json.dump(data, f, indent=4, default=str)
+        logging.info(f"{data_type.capitalize()} data salvo localmente em {file_path}")
+    except Exception as e:
+        logging.error(f"Erro ao salvar {data_type} data localmente", exc_info=True)
+
+
+
+# -------------------------- FUNCAO PARA PROCESSAMENTO DE MEDIA -----------------------------------
 def process_mean(data):
     """Processa os dados dos sensores para realizar a média (Horária ou Diária)"""
 
     try:
         measures = {
-            'UMIDADE RELATIVA AR': [],
-            'UMIDADE RELATIVA SOLO': [],
+            'UMIDADE': [],
             'TEMPERATURA AR': [],
-            'TEMPERATURA SOLO': [],
             'CO': [],
             'LUMINOSIDADE': []
         }
@@ -150,10 +174,8 @@ def process_mean(data):
         
         # Cria uma matriz onde cada linha representa uma série de dados de medida
         series_data = [
-            measures['UMIDADE RELATIVA AR'],
-            measures['UMIDADE RELATIVA SOLO'],
-            measures['TEMPERATURA AR'],
-            measures['TEMPERATURA SOLO'],
+            measures['UMIDADE'],
+            measures['TEMPERATURA'],
             measures['CO'],
             measures['LUMINOSIDADE']
         ]
@@ -171,7 +193,7 @@ def process_mean(data):
         return None
 
 
-# SOMENTE LEITURA DE DADOS
+# ---------------------------- SOMENTE LEITURA DE DADOS ------------------------
 async def get_hourly_data():
     garden_db = await get_garden_db()
     try:
@@ -210,21 +232,3 @@ async def get_original_json():
     except Exception as e:
         logging.error("Erro ao obter JSON original: %s", e)
         return {"status": "error", "message": str(e)}
-        
-    try:
-        images = await garden_db.images.find().to_list(length=None)        
-        return {"status": "success", "data": images}
-    except Exception as e:
-        logging.error("Erro ao obter imagens: %s", e)
-        return {"status": "error", "message": str(e)}
-
-
-async def get_original_json():
-    garden_db = await get_garden_db()
-    try:
-        original_json = await garden_db.original_json.find().to_list(length=None)        
-        return {"status": "success", "data": original_json}
-    except Exception as e:
-        logging.error("Erro ao obter JSON original: %s", e)
-        return {"status": "error", "message": str(e)}
-        
