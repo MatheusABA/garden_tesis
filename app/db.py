@@ -12,7 +12,7 @@ client = AsyncIOMotorClient(MONGODB_URL)
 async def initialize_database():
     """Inicializa o banco de dados e garante que todas as coleções necessárias existam."""
     db = client[os.getenv("DATABASE")]
-    collections = ["hourly_correlation", "hourly_json", "daily_correlation", "images"]
+    collections = ["hourly_data", "hourly_json", "daily_data", "images"]
     existing_collections = await db.list_collection_names()
 
     for collection in collections:

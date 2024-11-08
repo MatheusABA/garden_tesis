@@ -62,7 +62,7 @@ async def store_sensor_data(package_data):
                             
                             
             await save_hourly_json(original_json)
-            await save_hourly(mean, original_json)
+            await save_hourly_data(mean, original_json)
             
             sensor_data_buffer.clear()
             
@@ -76,8 +76,8 @@ async def store_sensor_data(package_data):
     }
 
 
-async def save_hourly(mean, original_json):
-    "Salva matriz horaria na colleciton hourly_matrices"
+async def save_hourly_data(mean, original_json):
+    "Salva dados horarios na collection hourly_data"
     garden_db = await get_garden_db()
     print(f"Teste - {original_json}")
     try:
@@ -89,11 +89,29 @@ async def save_hourly(mean, original_json):
         }
 
         logging.info("Tentando salvar dados horários: %s", original_json)
-        await garden_db.hourly_correlation.insert_one(hourly_data)
-        logging.info("Matriz horária salva com sucesso!")
+        await garden_db.hourly_data.insert_one(hourly_data)
+        logging.info("Dados horários salva com sucesso!")
     except Exception as e:
-        logging.error("Erro ao salvar matriz horária")
-        logging.error("Erro ao salvar matriz horária")
+        logging.error("Erro ao salvar dados horários")
+
+
+async def save_daily_data(mean, original_json):
+    "Salva dados diários na collection daily_data"
+    garden_db = await get_garden_db()
+    print(f"Teste - {original_json}")
+    try:
+        original_json = original_json.tolist()  # Converte para lista
+        hourly_data = {
+        "timestamp": datetime.utcnow(),  # Adiciona timestamp atual
+        "sensor_mean": mean,
+        "processed": False
+        }
+
+        logging.info("Tentando salvar dados diários: %s", original_json)
+        await garden_db.hourly_data.insert_one(hourly_data)
+        logging.info("Dados diários salva com sucesso!")
+    except Exception as e:
+        logging.error("Erro ao salvar dados diários")
 
 
 async def save_hourly_json(original_json):
@@ -154,35 +172,21 @@ def process_mean(data):
 
 
 # SOMENTE LEITURA DE DADOS
-async def get_hourly_matrices():
+async def get_hourly_data():
     garden_db = await get_garden_db()
     try:
-        matrices = await garden_db.hourly_correlation.find().to_list(length=None)
-        return {"status": "success", "data": matrices}
-    except Exception as e:
-        logging.error("Erro ao obter matrizes horárias: %s", e)
-        return {"status": "error", "message": str(e)}
-
-    try:
-        matrices = await garden_db.hourly_correlation.find().to_list(length=None)
-        return {"status": "success", "data": matrices}
+        data = await garden_db.hourly_data.find().to_list(length=None)
+        return {"status": "success", "data": data}
     except Exception as e:
         logging.error("Erro ao obter matrizes horárias: %s", e)
         return {"status": "error", "message": str(e)}
 
 
-async def get_daily_matrices():
+async def get_daily_data():
     garden_db = await get_garden_db()
     try:
-        matrices = await garden_db.daily_correlation.find().to_list(length=None)        
-        return {"status": "success", "data": matrices}
-    except Exception as e:
-        logging.error("Erro ao obter matrizes diárias: %s", e)
-        return {"status": "error", "message": str(e)}
-
-    try:
-        matrices = await garden_db.daily_correlation.find().to_list(length=None)        
-        return {"status": "success", "data": matrices}
+        data = await garden_db.daily_data.find().to_list(length=None)        
+        return {"status": "success", "data": data}
     except Exception as e:
         logging.error("Erro ao obter matrizes diárias: %s", e)
         return {"status": "error", "message": str(e)}
