@@ -51,7 +51,7 @@ def preprocess_image(image):
     return edges
 
 async def capture_image():
-    ip = "192.168.0.105"
+    ip = "192.168.0.124"
     port = "8090"
     camera_url = f'http://{ip}:{port}/shot.jpg'
     cap = cv2.VideoCapture(camera_url)

@@ -7,6 +7,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from datetime import datetime
+from pytz import timezone
 from zoneinfo import ZoneInfo
 
 # Logs de erros
@@ -15,11 +16,13 @@ logging.basicConfig(level=logging.INFO)
 # Buffer para armazenar temporariamente os dados dos sensores
 sensor_data_buffer = []
 # Defina o limite de dados a serem acumulados (60 = 1hora)
-BUFFER_LIMIT = 8 
+BUFFER_LIMIT = 24
 # Caminho do arquivo json salvo temporariamente antes de ser enviado ao banco se desejar
 BUFFER_FILE_PATH = "sensor_data.json"
 HOURLY_DATA_DIR = "data/hourly_data"
 DAILY_DATA_DIR = "data/daily_data"
+
+utc = timezone("America/Cuiaba")
 
 os.makedirs(HOURLY_DATA_DIR, exist_ok=True)
 os.makedirs(DAILY_DATA_DIR, exist_ok=True)
@@ -90,7 +93,7 @@ async def save_hourly_data(mean, original_json):
         # original_json = original_json.tolist()  # Converte para lista
 
         hourly_data = {
-            "timestamp": datetime.now(ZoneInfo("America/Cuiaba")),  # Adiciona timestamp atual
+            "timestamp": original_json["timestamp"],  # Adiciona timestamp atual
             "sensor_mean": mean,
             "processed": False
         }
@@ -144,8 +147,8 @@ async def save_hourly_json(original_json):
 # ------------------------------- FUNCAO PARA ARMAZENAR DADOS -----------------------------------
 def save_local_data(data, directory, data_type):
     """Salva dados localmente em um arquivo JSON na pasta específica."""
-    timestamp_str = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
-    file_path = os.path.join(directory, f"{data_type}_data_{timestamp_str}.json")
+    timestamp_str = datetime.now().astimezone(utc)
+    file_path = os.path.join(directory, f"{data_type}_data_{timestamp_str.strftime("%Y-%m-%d_%H-%M-%S")}.json")
     try:
         with open(file_path, 'w') as f:
             json.dump(data, f, indent=4, default=str)
@@ -228,7 +231,7 @@ async def process_daily_data():
 
         # Estrutura a matriz diária com a média calculada e a imagem
         daily_data = {
-            "timestamp": datetime.now(ZoneInfo('America/Cuiaba')),
+            "timestamp": datetime.now().astimezone(utc).strftime("%Y-%m-%d_%H-%M-%S"),
             "sensor_mean": mean_daily,
             "image_filename": image_filename,  # Inclui o caminho da imagem
         }
