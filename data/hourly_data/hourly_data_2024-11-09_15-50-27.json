@@ -1,0 +1,11 @@
+{
+    "timestamp": "2024-11-09 11:50:27.524162-04:00",
+    "sensor_mean": {
+        "UMIDADE": 984.6,
+        "TEMPERATURA": 27.444,
+        "CO": 53.0,
+        "LUMINOSIDADE": 610.4
+    },
+    "processed": false,
+    "_id": "672f84c35fe200977bf937d0"
+}

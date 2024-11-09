@@ -267,40 +267,53 @@ async def process_daily_data():
 
 
 # ---------------------------- SOMENTE LEITURA DE DADOS ------------------------
+from bson import ObjectId
+
+def convert_object_id(data):
+    """Recursively converts ObjectId to string in MongoDB documents."""
+    if isinstance(data, list):
+        return [convert_object_id(item) for item in data]
+    elif isinstance(data, dict):
+        return {key: (str(value) if isinstance(value, ObjectId) else convert_object_id(value)) for key, value in data.items()}
+    else:
+        return data
+    
+    
 async def get_hourly_data():
     garden_db = await get_garden_db()
     try:
         data = await garden_db.hourly_data.find().to_list(length=None)
+        data = convert_object_id(data)  # Converte ObjectIds para strings
         return {"status": "success", "data": data}
     except Exception as e:
         logging.error("Erro ao obter matrizes horárias: %s", e)
         return {"status": "error", "message": str(e)}
 
-
 async def get_daily_data():
     garden_db = await get_garden_db()
     try:
-        data = await garden_db.daily_data.find().to_list(length=None)        
+        data = await garden_db.daily_data.find().to_list(length=None)
+        data = convert_object_id(data)  # Converte ObjectIds para strings
         return {"status": "success", "data": data}
     except Exception as e:
         logging.error("Erro ao obter matrizes diárias: %s", e)
         return {"status": "error", "message": str(e)}
 
-
 async def get_images():
     garden_db = await get_garden_db()
     try:
-        images = await garden_db.images.find().to_list(length=None)        
+        images = await garden_db.images.find().to_list(length=None)
+        images = convert_object_id(images)  # Converte ObjectIds para strings
         return {"status": "success", "data": images}
     except Exception as e:
         logging.error("Erro ao obter imagens: %s", e)
         return {"status": "error", "message": str(e)}
 
-
 async def get_original_json():
     garden_db = await get_garden_db()
     try:
-        original_json = await garden_db.original_json.find().to_list(length=None)        
+        original_json = await garden_db.hourly_json.find().to_list(length=None)
+        original_json = convert_object_id(original_json)  # Converte ObjectIds para strings
         return {"status": "success", "data": original_json}
     except Exception as e:
         logging.error("Erro ao obter JSON original: %s", e)
