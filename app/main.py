@@ -1,7 +1,7 @@
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from .controllers.sensor_controller import router as sensor_router
-from .services.sensor_service import save_daily_data
+from .services.sensor_service import process_daily_data
 from .db import connection
 import asyncio
 import logging
@@ -40,7 +40,7 @@ async def startup_event():
 async def schedule_daily_processing():
     """Agenda o processamento da matriz diária a cada 24 horas."""
     while True:
-        # await save_daily_data()
+        await process_daily_data()
         await asyncio.sleep(30)  # 86400 = Espera 24 horas
 
 # Armazena os WebSocket clients

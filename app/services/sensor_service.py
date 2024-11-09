@@ -109,28 +109,21 @@ async def save_hourly_data(mean, original_json):
 
 
 # ------------------------------- ARMAZENAMENTO DE DADOS DIARIOS -----------------------------------
-async def save_daily_data(mean, original_json):
-    "Salva dados diários na collection daily_data e localmente"
+async def save_daily_data(daily_data):
+    """Salva os dados diários na collection 'daily_data' e localmente."""
     garden_db = await get_garden_db()
-    # print(f"Teste - {original_json}")
-    try:
-        # original_json = original_json.tolist()  # Converte para lista
-        daily_data = {
-            "timestamp": datetime.now(tz="3"),  # Adiciona timestamp atual
-            "sensor_mean": mean,
-            "processed": False
-        }
 
-        logging.info("Tentando salvar dados diários: %s", daily_data)
-        
-        
-        await garden_db.daily_data.insert_one(daily_data.tolist())
-        
+    try:
+        # Salva os dados diários no banco de dados
+        await garden_db.daily_data.insert_one(daily_data)
+
+        # Salva os dados localmente, se necessário
         save_local_data(daily_data, DAILY_DATA_DIR, "daily")
-        
-        logging.info("Dados diários salva com sucesso!")
+
+        logging.info("Dados diários salvos com sucesso!")
     except Exception as e:
-        logging.error("Erro ao salvar dados diários")
+        logging.error(f"Erro ao salvar dados diários: {str(e)}")
+
 
 # ------------------------------- ARMAZENAMENTO DE DADOS HORARIOS -----------------------------------
 async def save_hourly_json(original_json):
@@ -187,7 +180,7 @@ def process_mean(data):
         for measure_type, values in measures.items():
             if values:
                 # Calcular a média dos valores
-                means[measure_type] = sum(values)/len(values)
+                means[measure_type] = round(sum(values)/len(values), 2)
         return  means
     
     except Exception as e:
@@ -221,7 +214,7 @@ async def process_daily_data():
             "CO": [],
             "LUMINOSIDADE": []
         }
-        
+
         # Preenche as listas com os valores dos sensores de todas as entradas horárias
         for entry in hourly_data_entries:
             for sensor, value in entry["sensor_mean"].items():
@@ -230,32 +223,24 @@ async def process_daily_data():
         # Calcula a média de cada sensor
         mean_daily = {sensor: np.mean(values) for sensor, values in sensor_means.items()}
 
-        timestamp = datetime.now(ZoneInfo('America/Cuiaba'))
-
         # Captura e salva a imagem do plantio
-        image_filename = await capture_image()
+        image_filename = await capture_image()  # Retorna o caminho da imagem capturada
 
         # Estrutura a matriz diária com a média calculada e a imagem
         daily_data = {
-            "timestamp": timestamp,
+            "timestamp": datetime.now(ZoneInfo('America/Cuiaba')),
             "sensor_mean": mean_daily,
-            "image_filename": "image_filename",  # Correção aqui
-            "processed": False
+            "image_filename": image_filename,  # Inclui o caminho da imagem
         }
 
-        # Salva a matriz diária no banco de dados
-        await garden_db.daily_data.insert_one(daily_data)
-        
-        # Salva a matriz diária localmente
-        save_local_data(daily_data, DAILY_DATA_DIR, "daily")
-
-        logging.info("Matriz diária salva com sucesso no banco de dados e localmente.")
+        # Chama save_daily_data para salvar os dados processados
+        await save_daily_data(daily_data)  # Passa todos os dados necessários para salvar
 
         # Marca as matrizes horárias como processadas
         for entry in hourly_data_entries:
             await garden_db.hourly_data.update_one(
                 {"_id": entry["_id"]},
-                {"$set": {"processed": True}}
+                {"$set": {"processed": True}}  # Atualiza o status das matrizes horárias
             )
 
         return {"status": "Matriz diária salva com sucesso"}
@@ -263,7 +248,6 @@ async def process_daily_data():
     except Exception as e:
         logging.error(f"Não foi possível processar a matriz diária: {str(e)}")
         return {"status": "Erro ao processar matriz diária", "error": str(e)}
-
 
 
 # ---------------------------- SOMENTE LEITURA DE DADOS ------------------------

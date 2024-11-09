@@ -2,121 +2,25 @@
     {
         "sensor_type": "HIGR",
         "measure_type": "UMIDADE",
-        "measure_value": 988.0,
-        "timestamp": "2024-11-09T11:51:43.592317"
+        "measure_value": 982.0,
+        "timestamp": "2024-11-09T15:33:28.441938"
     },
     {
         "sensor_type": "NTC",
         "measure_type": "TEMPERATURA",
-        "measure_value": 27.6,
-        "timestamp": "2024-11-09T11:51:43.592455"
+        "measure_value": 27.43,
+        "timestamp": "2024-11-09T15:33:28.442040"
     },
     {
         "sensor_type": "MQ7",
         "measure_type": "CO",
-        "measure_value": 52.0,
-        "timestamp": "2024-11-09T11:51:43.592657"
+        "measure_value": 50.0,
+        "timestamp": "2024-11-09T15:33:28.442168"
     },
     {
         "sensor_type": "LDR",
         "measure_type": "LUMINOSIDADE",
-        "measure_value": 602.0,
-        "timestamp": "2024-11-09T11:51:43.592738"
-    },
-    {
-        "sensor_type": "HIGR",
-        "measure_type": "UMIDADE",
-        "measure_value": 986.0,
-        "timestamp": "2024-11-09T11:51:43.592825"
-    },
-    {
-        "sensor_type": "NTC",
-        "measure_type": "TEMPERATURA",
-        "measure_value": 27.87,
-        "timestamp": "2024-11-09T11:51:43.592918"
-    },
-    {
-        "sensor_type": "MQ7",
-        "measure_type": "CO",
-        "measure_value": 53.0,
-        "timestamp": "2024-11-09T11:51:43.593112"
-    },
-    {
-        "sensor_type": "LDR",
-        "measure_type": "LUMINOSIDADE",
-        "measure_value": 603.0,
-        "timestamp": "2024-11-09T11:51:43.593192"
-    },
-    {
-        "sensor_type": "HIGR",
-        "measure_type": "UMIDADE",
-        "measure_value": 986.0,
-        "timestamp": "2024-11-09T11:51:43.593277"
-    },
-    {
-        "sensor_type": "NTC",
-        "measure_type": "TEMPERATURA",
-        "measure_value": 27.51,
-        "timestamp": "2024-11-09T11:51:43.593371"
-    },
-    {
-        "sensor_type": "MQ7",
-        "measure_type": "CO",
-        "measure_value": 52.0,
-        "timestamp": "2024-11-09T11:51:43.593565"
-    },
-    {
-        "sensor_type": "LDR",
-        "measure_type": "LUMINOSIDADE",
-        "measure_value": 601.0,
-        "timestamp": "2024-11-09T11:51:43.593644"
-    },
-    {
-        "sensor_type": "HIGR",
-        "measure_type": "UMIDADE",
-        "measure_value": 985.0,
-        "timestamp": "2024-11-09T11:51:43.593730"
-    },
-    {
-        "sensor_type": "NTC",
-        "measure_type": "TEMPERATURA",
-        "measure_value": 27.51,
-        "timestamp": "2024-11-09T11:51:43.593823"
-    },
-    {
-        "sensor_type": "MQ7",
-        "measure_type": "CO",
-        "measure_value": 52.0,
-        "timestamp": "2024-11-09T11:51:43.594018"
-    },
-    {
-        "sensor_type": "LDR",
-        "measure_type": "LUMINOSIDADE",
-        "measure_value": 599.0,
-        "timestamp": "2024-11-09T11:51:43.594097"
-    },
-    {
-        "sensor_type": "HIGR",
-        "measure_type": "UMIDADE",
-        "measure_value": 985.0,
-        "timestamp": "2024-11-09T11:51:43.594183"
-    },
-    {
-        "sensor_type": "NTC",
-        "measure_type": "TEMPERATURA",
-        "measure_value": 27.69,
-        "timestamp": "2024-11-09T11:51:43.594276"
-    },
-    {
-        "sensor_type": "MQ7",
-        "measure_type": "CO",
-        "measure_value": 53.0,
-        "timestamp": "2024-11-09T11:51:43.600471"
-    },
-    {
-        "sensor_type": "LDR",
-        "measure_type": "LUMINOSIDADE",
-        "measure_value": 598.0,
-        "timestamp": "2024-11-09T11:51:43.600574"
+        "measure_value": 426.0,
+        "timestamp": "2024-11-09T15:33:28.442220"
     }
 ]
